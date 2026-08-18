@@ -65,6 +65,7 @@ for agent in "$PWD"/adapters/codex/.codex/agents/*.toml; do
   ln -s "$agent" "$HOME/.codex/agents/"
 done
 ln -s "$PWD/adapters/codex/.agents/skills/project-company" "$HOME/.agents/skills/project-company"
+ln -s "$PWD/adapters/codex/.agents/skills/collaborative-problem-solve" "$HOME/.agents/skills/collaborative-problem-solve"
 ```
 
 Restart Codex if the agent or Skill list does not refresh. Then invoke:
@@ -73,7 +74,7 @@ Restart Codex if the agent or Skill list does not refresh. Then invoke:
 Use $project-company to start a project with a 30-day memory window.
 ```
 
-The Codex adapter exposes one Sol coordinator and three generic Terra-Luna pods. Sol assigns one free pod to each project; a fourth active project must request capacity expansion instead of silently reusing an occupied pod.
+The Codex adapter exposes one Sol coordinator and three generic Terra-Luna pods. Sol assigns one free pod to each project; a fourth active project must request capacity expansion instead of silently reusing an occupied pod. It also includes `$collaborative-problem-solve`: a separate Sol-led, user-checkpointed diagnostic loop that can call a Luna investigator without taking ownership away from the project's primary pod.
 
 ## Add another framework
 
