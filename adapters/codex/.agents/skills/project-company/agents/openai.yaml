@@ -1,0 +1,6 @@
+interface:
+  display_name: "Project Company"
+  short_description: "Run owned project pods with durable memory."
+  default_prompt: "Use $project-company to start a new project with one Sol-assigned Terra-Luna pod and a 30-day memory window."
+policy:
+  allow_implicit_invocation: false
