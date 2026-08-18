@@ -1,6 +1,0 @@
-interface:
-  display_name: "Collaborative Problem Solve"
-  short_description: "Solve project problems with Sol and Luna."
-  default_prompt: "Use $collaborative-problem-solve to work with me on a project problem in checkpoints."
-policy:
-  allow_implicit_invocation: false
