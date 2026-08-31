@@ -7,34 +7,32 @@ It separates durable project state from ephemeral agent context:
 - A coordinator assigns each active project to one primary lead/executor pair.
 - The pair owns decisions and a durable working-memory record.
 - Other pairs may help on bounded tasks without taking ownership.
-- A configurable retention window triggers an archive review.
-- After confirmation, the working memory becomes an immutable project archive that a later run can load.
+- Every project memory is permanent and remains readable for future continuation.
 
 This repository is not affiliated with OpenAI. The `adapters/codex` directory is one implementation; the core lifecycle is usable from any agent framework.
 
 ## Repository layout
 
 ```text
-core/                 Framework-independent project-memory lifecycle tool and contract
+core/                 Framework-independent persistent memory tool and contract
 adapters/codex/       Custom agents and a Skill for Codex
 examples/             Minimal invocation examples
 ```
 
-## Core lifecycle
+## Project memory
 
-Each project has an active record:
+Each project retains one record in place:
 
 ```text
 <memory-root>/
-├── active/<project-id>/
-│   ├── manifest.json
-│   └── WORKING_MEMORY.md
-└── archive/<project-id>/
+└── active/<project-id>/
     ├── manifest.json
-    └── PROJECT_MEMORY.md
+    └── WORKING_MEMORY.md
 ```
 
-The `manifest.json` records ownership, start time, retention duration, archive due date, status, and extensions. `WORKING_MEMORY.md` records decisions, evidence, handoffs, and a resume brief. Do not treat an agent conversation as the only project memory.
+`manifest.json` records ownership, start time, completion state, and any handover. `WORKING_MEMORY.md` records decisions, evidence, handoffs, and a resume brief. Project memory has no expiry, scheduler, automatic archive, or automatic deletion.
+
+When the user explicitly completes a project, its state changes to `completed`, which frees its owner/executor pair for capacity planning. The files remain where they are.
 
 ## Use the core tool
 
@@ -44,16 +42,11 @@ python3 core/project_memory.py init \
   --project-id billing-redesign \
   --project-root /path/to/billing-repo \
   --lead-id lead-1 \
-  --executor-id executor-1 \
-  --retention-days 30
+  --executor-id executor-1
 
 python3 core/project_memory.py capacity --memory-root /path/to/project-memory
-python3 core/project_memory.py due --memory-root /path/to/project-memory --mark-notified
-python3 core/project_memory.py extend --memory-root /path/to/project-memory --project-id billing-redesign --days 14
-python3 core/project_memory.py archive --memory-root /path/to/project-memory --project-id billing-redesign --confirm
+python3 core/project_memory.py complete --memory-root /path/to/project-memory --project-id billing-redesign
 ```
-
-Archive is intentionally confirmation-gated. A scheduler may notify when a project is due, but it should not archive a project without an explicit approval policy.
 
 ## Codex adapter
 
@@ -70,7 +63,7 @@ ln -s "$PWD/adapters/codex/.agents/skills/project-company" "$HOME/.agents/skills
 Restart Codex if the agent or Skill list does not refresh. Then invoke:
 
 ```text
-Use $project-company to start a project with a 30-day memory window.
+Use $project-company to start a project with permanent project memory.
 ```
 
 The Codex adapter exposes one Sol coordinator and three generic Terra-Luna pods. Sol assigns one free pod to each project; a fourth active project must request capacity expansion instead of silently reusing an occupied pod.
@@ -82,8 +75,7 @@ Keep the core ownership and memory contract unchanged. Implement an adapter that
 1. Lists active owners and chooses a free pair.
 2. Initializes project memory with `core/project_memory.py`.
 3. Ensures only the primary pair updates the working memory.
-4. Creates a scheduled due-date notification.
-5. Requires the configured approval before calling `archive`.
+4. Marks a project complete only on explicit user direction, while retaining its memory in place.
 
 ## License
 

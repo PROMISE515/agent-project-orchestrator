@@ -1,11 +1,10 @@
-"""End-to-end coverage for the framework-neutral lifecycle CLI."""
+"""End-to-end coverage for the persistent project-memory CLI."""
 
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -34,79 +33,47 @@ class ProjectMemoryTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected_returncode, result.stderr)
         return result
 
-    def initialize(self, identifier="billing-redesign", lead="terra-1", executor="luna-1", expected_returncode=0):
-        return self.run_tool(
-            "init",
-            "--memory-root",
-            str(self.memory_root),
-            "--project-id",
-            identifier,
-            "--project-root",
-            str(self.project_root),
-            "--lead-id",
-            lead,
-            "--executor-id",
-            executor,
-            "--retention-days",
-            "30",
-            expected_returncode=expected_returncode,
-        )
+    def initialize(self, identifier="billing-redesign", lead="terra-1", executor="luna-1"):
+        return json.loads(self.run_tool(
+            "init", "--memory-root", str(self.memory_root), "--project-id", identifier,
+            "--project-root", str(self.project_root), "--lead-id", lead, "--executor-id", executor,
+        ).stdout)
 
-    def test_init_capacity_extend_and_archive(self):
-        manifest = json.loads(self.initialize().stdout)
-        self.assertEqual(manifest["state"], "active")
+    def test_memory_is_persistent_and_completion_releases_capacity(self):
+        created = self.initialize()
+        self.assertEqual(created["state"], "active")
+        self.assertNotIn("archive_due_at", created)
+        memory_file = self.memory_root / "active" / "billing-redesign" / "WORKING_MEMORY.md"
+        self.assertIn("no expiry date", memory_file.read_text(encoding="utf-8"))
 
         capacity = json.loads(self.run_tool("capacity", "--memory-root", str(self.memory_root)).stdout)
-        self.assertEqual(capacity["active_projects"][0]["lead_id"], "terra-1")
+        self.assertEqual([item["project_id"] for item in capacity["active_projects"]], ["billing-redesign"])
 
-        self.initialize("another-project", expected_returncode=2)
-
-        extended = json.loads(
-            self.run_tool(
-                "extend",
-                "--memory-root",
-                str(self.memory_root),
-                "--project-id",
-                "billing-redesign",
-                "--days",
-                "14",
-            ).stdout
+        completed = json.loads(self.run_tool(
+            "complete", "--memory-root", str(self.memory_root), "--project-id", "billing-redesign"
+        ).stdout)
+        self.assertTrue(completed["memory_retained"])
+        self.assertTrue(memory_file.is_file())
+        self.assertEqual(
+            json.loads(self.run_tool("capacity", "--memory-root", str(self.memory_root)).stdout)["active_projects"], []
         )
-        self.assertEqual(extended["retention_extensions"][0]["days"], 14)
 
+        replacement = self.initialize("next-project", "terra-1", "luna-1")
+        self.assertEqual(replacement["project_id"], "next-project")
+
+    def test_cannot_reuse_active_owner_or_project_id(self):
+        self.initialize()
+        self.initialize("second-project", "terra-2", "luna-2")
         self.run_tool(
-            "archive",
-            "--memory-root",
-            str(self.memory_root),
-            "--project-id",
-            "billing-redesign",
+            "init", "--memory-root", str(self.memory_root), "--project-id", "third-project",
+            "--project-root", str(self.project_root), "--lead-id", "terra-1", "--executor-id", "luna-3",
             expected_returncode=2,
         )
-        archive = json.loads(
-            self.run_tool(
-                "archive",
-                "--memory-root",
-                str(self.memory_root),
-                "--project-id",
-                "billing-redesign",
-                "--confirm",
-            ).stdout
+        self.run_tool(
+            "init", "--memory-root", str(self.memory_root), "--project-id", "billing-redesign",
+            "--project-root", str(self.project_root), "--lead-id", "terra-3", "--executor-id", "luna-3",
+            expected_returncode=2,
         )
-        self.assertTrue(Path(archive["archive_path"]).joinpath("PROJECT_MEMORY.md").is_file())
-
-    def test_due_marks_notice_once(self):
-        self.initialize()
-        manifest_file = self.memory_root / "active" / "billing-redesign" / "manifest.json"
-        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-        manifest["archive_due_at"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
-        manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
-
-        first_due = json.loads(
-            self.run_tool("due", "--memory-root", str(self.memory_root), "--mark-notified").stdout
-        )
-        self.assertEqual([item["project_id"] for item in first_due["due_projects"]], ["billing-redesign"])
-        second_due = json.loads(self.run_tool("due", "--memory-root", str(self.memory_root)).stdout)
-        self.assertEqual(second_due["due_projects"], [])
 
 
 if __name__ == "__main__":

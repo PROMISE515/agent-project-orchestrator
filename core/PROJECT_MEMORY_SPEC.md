@@ -10,10 +10,9 @@ Assistants may contribute evidence or bounded work, but record them as assistanc
 
 - `manifest.json`: project identity, project root, primary owners, lifecycle timestamps, and status.
 - `WORKING_MEMORY.md`: mission, current state, decisions, evidence, handoffs, risks, and resume brief.
-- `PROJECT_MEMORY.md`: archived, detailed snapshot generated from the active record after confirmation.
 
 ## Lifecycle
 
-`active` → due notification → user confirms archive or extends retention → `archived`.
+`active` → user explicitly marks the project `completed`.
 
-Schedulers may mark a due notification as sent, but must not call the confirmation-gated archive command by themselves. A later continuation reads `PROJECT_MEMORY.md` first and starts a new active record or an explicit handover.
+Project memory is permanent: it has no retention period, expiry date, due notification, automatic archive, or automatic deletion. Marking a project complete releases its owners for capacity purposes but preserves `manifest.json` and `WORKING_MEMORY.md` in place. A future continuation reads that same record first and either resumes the project or records an explicit handover.
